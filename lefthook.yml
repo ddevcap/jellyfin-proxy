@@ -1,0 +1,22 @@
+# lefthook.yml — Git hooks managed by lefthook (https://github.com/evilmartians/lefthook)
+#
+# Install hooks after cloning:
+#   lefthook install
+#
+# Run hooks manually without committing:
+#   lefthook run pre-commit
+
+pre-commit:
+  parallel: false   # run sequentially so output is readable
+  commands:
+    lint:
+      name: golangci-lint
+      glob: "**/*.go"   # only trigger when Go files are staged
+      run: golangci-lint run --fix ./...
+      stage_fixed: true  # automatically stage any files auto-fixed by the linter
+
+    test:
+      name: go test
+      glob: "**/*.go"
+      run: go test ./...
+

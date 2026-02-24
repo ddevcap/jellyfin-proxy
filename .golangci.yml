@@ -1,0 +1,75 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    # Correctness
+    - errcheck
+    - staticcheck
+    - govet
+    - ineffassign
+    - unused
+    # Style / quality
+    - misspell
+    - unconvert
+    - unparam
+    - nilerr
+    - bodyclose
+    - exhaustive
+    - godot
+
+formatters:
+  enable:
+    - goimports
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (io.Closer).Close
+      - (*net/http.Response.Body).Close
+      - (*database/sql.DB).Close
+      - (*entgo.io/ent/dialect/sql.Driver).Close
+      - (*nhooyr.io/websocket.Conn).Close
+      - (*golang.org/x/net/websocket.Conn).Close
+      - (*net.TCPConn).Close
+      - (net.Conn).Close
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    enable:
+      - shadow
+
+  exhaustive:
+    default-signifies-exhaustive: true
+
+  godot:
+    scope: toplevel
+
+formatters-settings:
+  goimports:
+    local-prefixes:
+      - github.com/ddevcap/jellyfin-proxy
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # In test setup boilerplate, os.Setenv/Unsetenv errors are unactionable.
+    - path: "_test\\.go"
+      linters: [errcheck]
+      text: "os\\.(Setenv|Unsetenv)"
+
+    # tmp.Close() and similar in SQLite driver init blocks.
+    - path: "suite_test\\.go"
+      linters: [errcheck]
+
+    # Suppress cosmetic staticcheck QF hints (De Morgan / tagged-switch).
+    - linters: [staticcheck]
+      text: "QF100[12]"
+
+    # unparam false-positives on test helpers that intentionally
+    # have fixed-value parameters for readability.
+    - path: "_test\\.go"
+      linters: [unparam]

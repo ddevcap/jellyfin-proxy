@@ -1,0 +1,71 @@
+# Two standalone Jellyfin servers for local proxy development/testing.
+#
+# Both servers expose all media types so either can be used as a full-featured
+# backend during development.
+#
+# Server 1  →  http://localhost:8196
+# Server 2  →  http://localhost:8296
+#
+# Usage:
+#   docker compose -f docker-compose.jellyfin.yml up -d
+#
+# The config directories are committed, so both servers start pre-configured
+# with libraries and a seeded admin account:
+#   Username: root     Password: password
+#
+# To register a backend with the proxy:
+#   POST /proxy/backends  { "name": "Server 1",
+#                           "url": "http://host.docker.internal:8196",
+#                           "prefix": "s1" }
+#
+# Then map a user to the backend:
+#   POST /proxy/backends/:id/login  { "proxy_user_id": "<uuid>",
+#                                     "username": "root",
+#                                     "password": "password" }
+#
+# If the proxy itself runs inside Docker, register backends using
+# host.docker.internal instead of localhost, e.g.:
+#   http://host.docker.internal:8196
+#
+# IMPORTANT: The proxy embeds the backend URL in media playback responses, so
+# your browser must also be able to resolve host.docker.internal. Add:
+#   127.0.0.1  host.docker.internal
+# to /etc/hosts (macOS/Linux) or C:\Windows\System32\drivers\etc\hosts (Windows),
+# otherwise playback will fail.
+
+services:
+  jellyfin-server1:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin-server1
+    ports:
+      - "8196:8096"
+    volumes:
+      - ./jellyfin/server1/config:/config
+      - ./jellyfin/server1/cache:/cache
+      - ./jellyfin/server1/movies:/media/movies:ro
+      - ./jellyfin/server1/tv:/media/tv:ro
+      - ./jellyfin/server1/musicvideos:/media/musicvideos:ro
+      - ./jellyfin/server1/music:/media/music:ro
+      - ./jellyfin/server1/photos:/media/photos:ro
+      - ./jellyfin/server1/books:/media/books:ro
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://localhost:8196
+    restart: unless-stopped
+
+  jellyfin-server2:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin-server2
+    ports:
+      - "8296:8096"
+    volumes:
+      - ./jellyfin/server2/config:/config
+      - ./jellyfin/server2/cache:/cache
+      - ./jellyfin/server2/movies:/media/movies:ro
+      - ./jellyfin/server2/tv:/media/tv:ro
+      - ./jellyfin/server2/musicvideos:/media/musicvideos:ro
+      - ./jellyfin/server2/music:/media/music:ro
+      - ./jellyfin/server2/photos:/media/photos:ro
+      - ./jellyfin/server2/books:/media/books:ro
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://localhost:8296
+    restart: unless-stopped

@@ -1,0 +1,12 @@
+.git
+.gitignore
+.github
+*.md
+LICENSE
+NOTICE
+jellyfin/
+testmedia/
+docker-compose*.yml
+Dockerfile.local
+lefthook.yml
+.golangci.yml

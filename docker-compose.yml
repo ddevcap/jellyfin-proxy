@@ -1,0 +1,43 @@
+services:
+  jellyfin-proxy:
+    build: .
+    restart: unless-stopped
+    container_name: jellyfin-proxy
+    ports:
+      - "8096:8096"
+    env_file: .env
+    environment:
+      # Always use the Docker service name — .env uses localhost for local dev outside Docker
+      DATABASE_URL: postgres://jellyfin:jellyfin@postgres:5432/jellyfin_proxy?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - jellyfin-network
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    container_name: jellyfin-postgres
+    environment:
+      POSTGRES_DB: jellyfin_proxy
+      POSTGRES_USER: jellyfin
+      POSTGRES_PASSWORD: jellyfin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jellyfin -d jellyfin_proxy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jellyfin-network
+
+volumes:
+  postgres_data:
+
+networks:
+  jellyfin-network:
+    driver: bridge
