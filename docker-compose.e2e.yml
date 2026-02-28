@@ -1,0 +1,102 @@
+# E2E test stack: proxy + Postgres + 2 Jellyfin backends on a shared network.
+#
+# Usage:
+#   docker compose -f docker-compose.e2e.yml up --wait -d
+#   go test -tags e2e -v -count=1 -timeout 5m ./e2e/...
+#   docker compose -f docker-compose.e2e.yml down -v
+
+services:
+  jellyfin-proxy:
+    build: .
+    restart: "no"
+    container_name: jellyfin-proxy-e2e
+    ports:
+      - "18096:8096"
+    environment:
+      DATABASE_URL: postgres://jellyfin:jellyfin@postgres:5432/jellyfin_proxy?sslmode=disable
+      LISTEN_ADDR: ":8097"
+      EXTERNAL_URL: "http://localhost:18096"
+      SERVER_ID: "e2e-proxy-server-id"
+      SERVER_NAME: "E2E Proxy"
+      INITIAL_ADMIN_USER: "admin"
+      INITIAL_ADMIN_PASSWORD: "e2e-admin-password"
+      DIRECT_STREAM: "false"
+      SESSION_TTL: "1h"
+      HEALTH_CHECK_INTERVAL: "5s"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      jellyfin-server1:
+        condition: service_started
+      jellyfin-server2:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8096/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    networks:
+      - e2e-network
+
+  postgres:
+    image: postgres:16-alpine
+    restart: "no"
+    container_name: jellyfin-postgres-e2e
+    environment:
+      POSTGRES_DB: jellyfin_proxy
+      POSTGRES_USER: jellyfin
+      POSTGRES_PASSWORD: jellyfin
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jellyfin -d jellyfin_proxy"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks:
+      - e2e-network
+    volumes:
+      - e2e_postgres_data:/var/lib/postgresql/data
+
+  jellyfin-server1:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin-server1-e2e
+    volumes:
+      - ./jellyfin/server1/config:/config
+      - ./jellyfin/server1/cache:/cache
+      - ./jellyfin/server1/movies:/media/movies:ro
+      - ./jellyfin/server1/tv:/media/tv:ro
+      - ./jellyfin/server1/musicvideos:/media/musicvideos:ro
+      - ./jellyfin/server1/music:/media/music:ro
+      - ./jellyfin/server1/photos:/media/photos:ro
+      - ./jellyfin/server1/books:/media/books:ro
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://jellyfin-server1:8096
+    restart: "no"
+    networks:
+      - e2e-network
+
+  jellyfin-server2:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin-server2-e2e
+    volumes:
+      - ./jellyfin/server2/config:/config
+      - ./jellyfin/server2/cache:/cache
+      - ./jellyfin/server2/movies:/media/movies:ro
+      - ./jellyfin/server2/tv:/media/tv:ro
+      - ./jellyfin/server2/musicvideos:/media/musicvideos:ro
+      - ./jellyfin/server2/music:/media/music:ro
+      - ./jellyfin/server2/photos:/media/photos:ro
+      - ./jellyfin/server2/books:/media/books:ro
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://jellyfin-server2:8096
+    restart: "no"
+    networks:
+      - e2e-network
+
+networks:
+  e2e-network:
+    driver: bridge
+
+volumes:
+  e2e_postgres_data:
+
