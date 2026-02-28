@@ -246,4 +246,82 @@ var _ = Describe("SystemHandler", func() {
 			Expect(w.Body.Len()).To(Equal(10 * 1024 * 1024))
 		})
 	})
+
+	// ── Missing system stubs ──────────────────────────────────────────────────
+
+	Describe("BrandingCss", func() {
+		It("returns 200 with text/css content type", func() {
+			w := serve("GET", "/branding/css", h.BrandingCss, "/branding/css")
+			Expect(w.Code).To(Equal(http.StatusOK))
+			Expect(w.Header().Get("Content-Type")).To(ContainSubstring("text/css"))
+		})
+	})
+
+	Describe("GetSystemLogs", func() {
+		It("returns 200 with an empty array", func() {
+			w := serve("GET", "/system/logs", h.GetSystemLogs, "/system/logs")
+			Expect(w.Code).To(Equal(http.StatusOK))
+			var body []interface{}
+			Expect(json.Unmarshal(w.Body.Bytes(), &body)).To(Succeed())
+			Expect(body).To(BeEmpty())
+		})
+	})
+
+	Describe("GetSystemLogFile", func() {
+		It("returns 200 with empty content", func() {
+			w := serve("GET", "/system/logs/log", h.GetSystemLogFile, "/system/logs/log")
+			Expect(w.Code).To(Equal(http.StatusOK))
+			Expect(w.Header().Get("Content-Type")).To(ContainSubstring("text/plain"))
+		})
+	})
+
+	Describe("GetPackages", func() {
+		It("returns 200 with an empty array", func() {
+			w := serve("GET", "/packages", h.GetPackages, "/packages")
+			Expect(w.Code).To(Equal(http.StatusOK))
+			var body []interface{}
+			Expect(json.Unmarshal(w.Body.Bytes(), &body)).To(Succeed())
+			Expect(body).To(BeEmpty())
+		})
+	})
+
+	Describe("GetRepositories", func() {
+		It("returns 200 with an empty array", func() {
+			w := serve("GET", "/repositories", h.GetRepositories, "/repositories")
+			Expect(w.Code).To(Equal(http.StatusOK))
+			var body []interface{}
+			Expect(json.Unmarshal(w.Body.Bytes(), &body)).To(Succeed())
+			Expect(body).To(BeEmpty())
+		})
+	})
+
+	Describe("GetLocalizationCultures", func() {
+		It("returns 200 with a non-empty array of cultures", func() {
+			w := serve("GET", "/localization/cultures", h.GetLocalizationCultures, "/localization/cultures")
+			Expect(w.Code).To(Equal(http.StatusOK))
+			var body []interface{}
+			Expect(json.Unmarshal(w.Body.Bytes(), &body)).To(Succeed())
+			Expect(body).NotTo(BeEmpty())
+		})
+	})
+
+	Describe("GetLocalizationCountries", func() {
+		It("returns 200 with a non-empty array of countries", func() {
+			w := serve("GET", "/localization/countries", h.GetLocalizationCountries, "/localization/countries")
+			Expect(w.Code).To(Equal(http.StatusOK))
+			var body []interface{}
+			Expect(json.Unmarshal(w.Body.Bytes(), &body)).To(Succeed())
+			Expect(body).NotTo(BeEmpty())
+		})
+	})
+
+	Describe("GetParentalRatings", func() {
+		It("returns 200 with an empty array", func() {
+			w := serve("GET", "/parentalratings", h.GetParentalRatings, "/parentalratings")
+			Expect(w.Code).To(Equal(http.StatusOK))
+			var body []interface{}
+			Expect(json.Unmarshal(w.Body.Bytes(), &body)).To(Succeed())
+			Expect(body).To(BeEmpty())
+		})
+	})
 })

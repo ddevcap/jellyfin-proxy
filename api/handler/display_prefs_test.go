@@ -79,3 +79,16 @@ var _ = Describe("HealthLive", func() {
 		Expect(resp["status"]).To(Equal("ok"))
 	})
 })
+
+var _ = Describe("HealthReady", func() {
+	It("returns 200 when DB is reachable", func() {
+		h := handler.NewSystemHandler(config.Config{}, db, nil)
+		w := serveSystem("GET", "/ready", h.HealthReady, "/ready")
+		Expect(w.Code).To(Equal(http.StatusOK))
+
+		var resp map[string]interface{}
+		Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+		Expect(resp["status"]).To(Equal("ready"))
+	})
+})
+

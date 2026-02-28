@@ -298,7 +298,7 @@ func (h *MediaHandler) GetSimilarMovies(c *gin.Context) {
 
 // GetSimilarShows handles GET /Shows/:itemId/similar.
 func (h *MediaHandler) GetSimilarShows(c *gin.Context) {
-	sc, backendID, err := h.routeByID(c, c.Param("itemId"))
+	sc, backendID, err := h.routeByID(c, c.Param("seriesId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
