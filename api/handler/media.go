@@ -102,7 +102,8 @@ func forwardQuery(src url.Values, backendUserID string) url.Values {
 			// Never forward client-side ApiKey to backends — the proxy
 			// injects the correct backend token where needed.
 			continue
-		case "parentid", "seasonid", "seriesid", "albumid", "mediasourceid":
+		case "parentid", "seasonid", "seriesid", "albumid", "mediasourceid",
+			"startitemid", "adjacentto":
 			for _, v := range vals {
 				_, backendVal, _ := idtrans.Decode(v)
 				dst.Add(canonical, backendVal)
@@ -161,6 +162,9 @@ var canonicalKeys = map[string]string{
 	"mincommunityscore":      "MinCommunityRating",
 	"mincreaticscore":        "MinCriticRating",
 	"adjacentto":             "AdjacentTo",
+	"startitemid":            "StartItemId",
+	"collapseboxsetitems":    "CollapseBoxSetItems",
+	"excludelocationtypes":   "ExcludeLocationTypes",
 }
 
 // canonicalKey returns the canonical (properly-cased) Jellyfin query param name

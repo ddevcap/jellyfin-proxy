@@ -51,6 +51,7 @@ func mediaTestRouter(directStream bool) (*gin.Engine, string) {
 	priv.Use(middleware.Auth(db, cfg))
 	priv.GET("/audio/:itemId/lyrics", mediaH.Lyrics)
 	priv.GET("/collections/:itemId/items", mediaH.GetCollectionItems)
+	priv.GET("/shows/:seriesId/episodes", mediaH.GetEpisodes)
 
 	proxyID := idtrans.Encode(mediaTestPrefix, mediaTestBackendID)
 	return r, proxyID
@@ -339,6 +340,99 @@ var _ = Describe("MediaHandler", func() {
 
 				w := doGet(router, "/collections/"+proxyID+"/items") // no auth header
 
+				Expect(w.Code).To(Equal(http.StatusUnauthorized))
+			})
+		})
+	})
+
+	// ── GetEpisodes ───────────────────────────────────────────────────────────
+
+	Describe("GetEpisodes", func() {
+		Context("when the backend returns episodes", func() {
+			It("returns 200 with rewritten IDs", func() {
+				fakeBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					Expect(r.URL.Path).To(Equal("/shows/" + mediaTestBackendID + "/episodes"))
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = fmt.Fprintf(w,
+						`{"Items":[{"Id":%q,"Name":"Episode 1"}],"TotalRecordCount":1,"StartIndex":0}`,
+						mediaTestBackendID)
+				}))
+				defer fakeBackend.Close()
+
+				token := setupMediaDB(fakeBackend.URL)
+				router, proxyID := mediaTestRouter(false)
+
+				w := doGet(router, "/shows/"+proxyID+"/episodes",
+					map[string]string{"X-Emby-Token": token})
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+				var resp map[string]interface{}
+				Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+				items := resp["Items"].([]interface{})
+				Expect(items).To(HaveLen(1))
+				item := items[0].(map[string]interface{})
+				Expect(item["Id"]).To(HavePrefix(mediaTestPrefix + "_"))
+			})
+		})
+
+		Context("when startItemId is a proxy-prefixed ID", func() {
+			It("strips the proxy prefix before forwarding to the backend", func() {
+				var receivedStartItemId string
+				fakeBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					receivedStartItemId = r.URL.Query().Get("StartItemId")
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = fmt.Fprint(w, `{"Items":[],"TotalRecordCount":0,"StartIndex":0}`)
+				}))
+				defer fakeBackend.Close()
+
+				token := setupMediaDB(fakeBackend.URL)
+				router, proxyID := mediaTestRouter(false)
+
+				startItemProxyID := idtrans.Encode(mediaTestPrefix, "deadbeef1234")
+				w := doGet(router,
+					"/shows/"+proxyID+"/episodes?startItemId="+startItemProxyID+"&limit=100",
+					map[string]string{"X-Emby-Token": token})
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+				// The backend must receive the bare ID, not the proxy-prefixed one.
+				Expect(receivedStartItemId).To(Equal("deadbeef1234"))
+			})
+		})
+
+		Context("when AdjacentTo is a proxy-prefixed ID", func() {
+			It("strips the proxy prefix before forwarding to the backend", func() {
+				var receivedAdjacentTo string
+				fakeBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					receivedAdjacentTo = r.URL.Query().Get("AdjacentTo")
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = fmt.Fprint(w, `{"Items":[],"TotalRecordCount":0,"StartIndex":0}`)
+				}))
+				defer fakeBackend.Close()
+
+				token := setupMediaDB(fakeBackend.URL)
+				router, proxyID := mediaTestRouter(false)
+
+				adjacentProxyID := idtrans.Encode(mediaTestPrefix, "cafebabe5678")
+				w := doGet(router,
+					"/shows/"+proxyID+"/episodes?AdjacentTo="+adjacentProxyID,
+					map[string]string{"X-Emby-Token": token})
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+				Expect(receivedAdjacentTo).To(Equal("cafebabe5678"))
+			})
+		})
+
+		Context("without authentication", func() {
+			It("returns 401", func() {
+				fakeBackend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}))
+				defer fakeBackend.Close()
+
+				setupMediaDB(fakeBackend.URL)
+				router, proxyID := mediaTestRouter(false)
+
+				w := doGet(router, "/shows/"+proxyID+"/episodes")
 				Expect(w.Code).To(Equal(http.StatusUnauthorized))
 			})
 		})
