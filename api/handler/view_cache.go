@@ -17,6 +17,7 @@ const defaultViewCacheTTL = 30 * time.Second
 func newViewCache() *ttlcache.Cache[string, []json.RawMessage] {
 	cache := ttlcache.New[string, []json.RawMessage](
 		ttlcache.WithTTL[string, []json.RawMessage](defaultViewCacheTTL),
+		ttlcache.WithDisableTouchOnHit[string, []json.RawMessage](),
 	)
 	go cache.Start() // starts the automatic expired-item eviction loop
 	return cache
