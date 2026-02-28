@@ -60,9 +60,11 @@ services:
   jellyfin-server1:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin-server1-e2e
+    ports:
+      - "18196:8096"
     volumes:
-      - ./jellyfin/server1/config:/config
-      - ./jellyfin/server1/cache:/cache
+      - e2e_jf1_config:/config
+      - e2e_jf1_cache:/cache
       - ./jellyfin/server1/movies:/media/movies:ro
       - ./jellyfin/server1/tv:/media/tv:ro
       - ./jellyfin/server1/musicvideos:/media/musicvideos:ro
@@ -78,9 +80,11 @@ services:
   jellyfin-server2:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin-server2-e2e
+    ports:
+      - "18296:8096"
     volumes:
-      - ./jellyfin/server2/config:/config
-      - ./jellyfin/server2/cache:/cache
+      - e2e_jf2_config:/config
+      - e2e_jf2_cache:/cache
       - ./jellyfin/server2/movies:/media/movies:ro
       - ./jellyfin/server2/tv:/media/tv:ro
       - ./jellyfin/server2/musicvideos:/media/musicvideos:ro
@@ -99,4 +103,8 @@ networks:
 
 volumes:
   e2e_postgres_data:
+  e2e_jf1_config:
+  e2e_jf1_cache:
+  e2e_jf2_config:
+  e2e_jf2_cache:
 

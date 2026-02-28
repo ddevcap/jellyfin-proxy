@@ -42,12 +42,12 @@ const (
 )
 
 // playbackRouter builds a router that mirrors the real route layout.
-func playbackRouter(directStream bool, externalURL string) (*gin.Engine, string) {
+func playbackRouter(directStream bool) (*gin.Engine, string) {
 	cfg := config.Config{
 		ServerID:     "test-server-id",
 		ServerName:   "Test Proxy",
 		DirectStream: directStream,
-		ExternalURL:  externalURL,
+		ExternalURL:  "http://proxy:8096",
 	}
 	pool := backend.NewPool(db, cfg)
 	mediaH := handler.NewMediaHandler(pool, cfg, db)
@@ -121,7 +121,7 @@ var _ = Describe("Playback flow", func() {
 			defer fakeBackend.Close()
 
 			setupPlaybackDB(fakeBackend.URL)
-			router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+			router, proxyItemID := playbackRouter(false)
 
 			w := doPost(router, "/items/"+proxyItemID+"/playbackinfo",
 				map[string]interface{}{},
@@ -157,7 +157,7 @@ var _ = Describe("Playback flow", func() {
 			defer fakeBackend.Close()
 
 			setupPlaybackDB(fakeBackend.URL)
-			router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+			router, proxyItemID := playbackRouter(false)
 
 			w := doPost(router, "/items/"+proxyItemID+"/playbackinfo",
 				map[string]interface{}{},
@@ -195,7 +195,7 @@ var _ = Describe("Playback flow", func() {
 			backendURL = fakeBackend.URL
 
 			setupPlaybackDB(fakeBackend.URL)
-			router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+			router, proxyItemID := playbackRouter(false)
 
 			w := doPost(router, "/items/"+proxyItemID+"/playbackinfo",
 				map[string]interface{}{},
@@ -221,7 +221,7 @@ var _ = Describe("Playback flow", func() {
 			defer fakeBackend.Close()
 
 			setupPlaybackDB(fakeBackend.URL)
-			router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+			router, proxyItemID := playbackRouter(false)
 
 			// GET (audio playback info — no body)
 			w := doGet(router, "/items/"+proxyItemID+"/playbackinfo",
@@ -263,7 +263,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(false)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/master.m3u8?ApiKey="+pbProxyToken,
@@ -290,7 +290,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(false)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/master.m3u8?ApiKey="+pbProxyToken,
@@ -324,7 +324,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(false)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/main.m3u8?ApiKey="+pbProxyToken,
@@ -349,7 +349,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(true, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(true)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/master.m3u8?ApiKey="+pbProxyToken,
@@ -372,7 +372,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(true, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(true)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/master.m3u8?ApiKey=&MediaSourceId=x",
@@ -414,7 +414,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(false)
 
 				// Clean URL: only proxy token (happy path from playlist injection).
 				w := doGet(router,
@@ -436,7 +436,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(false)
 
 				// Worst case: both backend and proxy tokens in URL.
 				// tryResolveUser must try all candidates and find the valid session.
@@ -459,7 +459,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(false)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/hls1/main/0.mp4?ApiKey="+pbProxyToken,
@@ -479,7 +479,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(false)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/abc123/hls1/seg0/file.mp4?ApiKey="+pbProxyToken,
@@ -500,7 +500,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(true, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(true)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/hls1/main/0.mp4?ApiKey="+pbProxyToken,
@@ -521,7 +521,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(true, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(true)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/hls1/main/0.mp4?ApiKey="+pbBackendToken+"&ApiKey="+pbProxyToken,
@@ -552,7 +552,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(false)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/stream?ApiKey="+pbProxyToken,
@@ -571,7 +571,7 @@ var _ = Describe("Playback flow", func() {
 				defer fakeBackend.Close()
 
 				setupPlaybackDB(fakeBackend.URL)
-				router, proxyItemID := playbackRouter(true, "http://proxy:8096")
+				router, proxyItemID := playbackRouter(true)
 
 				w := doGet(router,
 					"/videos/"+proxyItemID+"/stream?ApiKey="+pbProxyToken+"&static=true",
@@ -599,7 +599,7 @@ var _ = Describe("Playback flow", func() {
 			defer fakeBackend.Close()
 
 			setupPlaybackDB(fakeBackend.URL)
-			router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+			router, proxyItemID := playbackRouter(false)
 
 			doGet(router,
 				"/videos/"+proxyItemID+"/stream?ApiKey="+pbProxyToken+"&static=true",
@@ -625,7 +625,7 @@ var _ = Describe("Playback flow", func() {
 			defer fakeBackend.Close()
 
 			setupPlaybackDB(fakeBackend.URL)
-			router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+			router, proxyItemID := playbackRouter(false)
 
 			w := doPost(router, "/items/"+proxyItemID+"/playbackinfo",
 				map[string]interface{}{},
@@ -643,7 +643,7 @@ var _ = Describe("Playback flow", func() {
 			defer fakeBackend.Close()
 
 			setupPlaybackDB(fakeBackend.URL)
-			router, proxyItemID := playbackRouter(false, "http://proxy:8096")
+			router, proxyItemID := playbackRouter(false)
 
 			w := doGet(router,
 				"/videos/"+proxyItemID+"/master.m3u8?ApiKey="+pbProxyToken,

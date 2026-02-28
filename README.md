@@ -354,6 +354,30 @@ make test        # or: go test -race ./...
 golangci-lint run ./...
 ```
 
+### Jellyfin test servers
+
+The repo includes a `docker-compose.jellyfin.yml` that starts two standalone
+Jellyfin instances for local development. Sample media files are included, but
+the Jellyfin config/database is **not** committed — they are created
+automatically on first launch.
+
+```bash
+make jellyfin-up      # start servers + auto-configure (root / password)
+make jellyfin-down    # stop servers
+```
+
+| Server | URL | Credentials |
+|---|---|---|
+| Server 1 | http://localhost:8196 | `root` / `password` |
+| Server 2 | http://localhost:8296 | `root` / `password` |
+
+`make jellyfin-up` runs the Jellyfin startup wizard automatically via
+`scripts/setup-jellyfin.sh`, creating an admin account, adding a Movies
+library, and waiting for the scan to finish. Re-running is safe — setup is
+skipped if already completed. Once both servers are running, register them as
+backends in the proxy and map your proxy users (see the comments in
+`docker-compose.jellyfin.yml` for example API calls).
+
 ### Testing
 
 The project has two levels of tests:
@@ -369,6 +393,9 @@ Every route registered in the router has at least one test.
 **E2E tests** spin up a full Docker Compose stack (proxy + Postgres + 2 real
 Jellyfin backends with test media) and exercise the complete flow: login →
 browse merged libraries → play media → mark favorites → error handling.
+The test suite automatically runs the Jellyfin startup wizard, creates an
+admin account, adds a Movies library, and waits for the scan to complete
+before running any tests — no manual setup needed.
 
 ```bash
 # Run e2e tests (starts stack, runs tests, tears down).

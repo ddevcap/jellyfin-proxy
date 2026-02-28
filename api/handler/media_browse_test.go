@@ -126,9 +126,9 @@ func browseAuth() map[string]string {
 	return map[string]string{"X-Emby-Token": browseToken}
 }
 
-// pagedJSON returns a standard Jellyfin paged response.
-func pagedJSON(items string, count int) string {
-	return fmt.Sprintf(`{"Items":[%s],"TotalRecordCount":%d,"StartIndex":0}`, items, count)
+// pagedJSON returns a standard Jellyfin paged response with a single item.
+func pagedJSON(items string) string {
+	return fmt.Sprintf(`{"Items":[%s],"TotalRecordCount":1,"StartIndex":0}`, items)
 }
 
 // ── Route-by-ID endpoints (single backend proxy) ─────────────────────────────
@@ -156,14 +156,14 @@ var _ = Describe("Route-by-ID browse endpoints", func() {
 	}
 
 	cases := []routeByIDCase{
-		{"GetSeasons", "GET", "/shows/%s/seasons", "/shows/" + browseBackendID + "/seasons", pagedJSON(`{"Id":"s1","Name":"Season 1"}`, 1)},
-		{"GetSimilarItems", "GET", "/items/%s/similar", "/items/" + browseBackendID + "/similar", pagedJSON(`{"Id":"sim1","Name":"Similar"}`, 1)},
-		{"GetSimilarMovies", "GET", "/movies/%s/similar", "/movies/" + browseBackendID + "/similar", pagedJSON(`{"Id":"sim1","Name":"Similar"}`, 1)},
-		{"GetSimilarShows", "GET", "/shows/%s/similar", "/shows/" + browseBackendID + "/similar", pagedJSON(`{"Id":"sim1","Name":"Similar"}`, 1)},
-		{"GetItemChildren", "GET", "/items/%s/children", "/items/" + browseBackendID + "/children", pagedJSON(`{"Id":"ch1","Name":"Child"}`, 1)},
+		{"GetSeasons", "GET", "/shows/%s/seasons", "/shows/" + browseBackendID + "/seasons", pagedJSON(`{"Id":"s1","Name":"Season 1"}`)},
+		{"GetSimilarItems", "GET", "/items/%s/similar", "/items/" + browseBackendID + "/similar", pagedJSON(`{"Id":"sim1","Name":"Similar"}`)},
+		{"GetSimilarMovies", "GET", "/movies/%s/similar", "/movies/" + browseBackendID + "/similar", pagedJSON(`{"Id":"sim1","Name":"Similar"}`)},
+		{"GetSimilarShows", "GET", "/shows/%s/similar", "/shows/" + browseBackendID + "/similar", pagedJSON(`{"Id":"sim1","Name":"Similar"}`)},
+		{"GetItemChildren", "GET", "/items/%s/children", "/items/" + browseBackendID + "/children", pagedJSON(`{"Id":"ch1","Name":"Child"}`)},
 		{"GetSpecialFeatures", "GET", "/items/%s/specialfeatures", "/items/" + browseBackendID + "/specialfeatures", `[{"Id":"sf1","Name":"Behind the Scenes"}]`},
 		{"GetThemeMedia", "GET", "/items/%s/thememedia", "/items/" + browseBackendID + "/thememedia", `{"ThemeSongsResult":{"Items":[],"TotalRecordCount":0},"ThemeVideosResult":{"Items":[],"TotalRecordCount":0}}`},
-		{"GetPlaylistItems", "GET", "/playlists/%s/items", "/playlists/" + browseBackendID + "/items", pagedJSON(`{"Id":"pi1","Name":"Track 1"}`, 1)},
+		{"GetPlaylistItems", "GET", "/playlists/%s/items", "/playlists/" + browseBackendID + "/items", pagedJSON(`{"Id":"pi1","Name":"Track 1"}`)},
 	}
 
 	for _, tc := range cases {
@@ -404,7 +404,7 @@ var _ = Describe("Aggregated browse endpoints", func() {
 					fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						Expect(r.URL.Path).To(Equal(tc.backendPath))
 						w.Header().Set("Content-Type", "application/json")
-						_, _ = fmt.Fprint(w, pagedJSON(`{"Id":"a1","Name":"Item One"}`, 1))
+						_, _ = fmt.Fprint(w, pagedJSON(`{"Id":"a1","Name":"Item One"}`))
 					}))
 					defer fake.Close()
 					setupBrowseDB(fake.URL)
@@ -447,7 +447,7 @@ var _ = Describe("Aggregated browse endpoints", func() {
 			fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				Expect(r.URL.Query().Get("IncludeItemTypes")).To(Equal("Playlist"))
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = fmt.Fprint(w, pagedJSON(`{"Id":"pl1","Name":"My Playlist"}`, 1))
+				_, _ = fmt.Fprint(w, pagedJSON(`{"Id":"pl1","Name":"My Playlist"}`))
 			}))
 			defer fake.Close()
 			setupBrowseDB(fake.URL)

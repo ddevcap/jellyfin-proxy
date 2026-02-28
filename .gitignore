@@ -11,17 +11,8 @@ jellyfin-proxy
 # OS
 .DS_Store
 
-# Jellyfin test server data
-# Cache is always regenerated — never commit it.
-jellyfin/server1/cache/
-jellyfin/server2/cache/
-
-# Transient / machine-specific files inside the config directories.
-# Everything else (DB, XML config, metadata, plugin config, library roots) is
-# committed so new contributors get a ready-to-run test environment.
-jellyfin/*/config/log/
-jellyfin/*/config/data/jellyfin.db-shm
-jellyfin/*/config/data/jellyfin.db-wal
-jellyfin/*/config/data/SQLiteBackups/
-jellyfin/*/config/data/device.txt
+# Jellyfin test server data — users should run initial setup themselves.
+# Only .gitkeep files and media are committed.
+jellyfin/*/cache/
+jellyfin/*/config/
 

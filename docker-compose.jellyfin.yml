@@ -1,27 +1,29 @@
 # Two standalone Jellyfin servers for local proxy development/testing.
 #
 # Both servers expose all media types so either can be used as a full-featured
-# backend during development.
+# backend during development. Sample media files are included in the repo.
 #
 # Server 1  →  http://localhost:8196
 # Server 2  →  http://localhost:8296
 #
-# Usage:
-#   docker compose -f docker-compose.jellyfin.yml up -d
+# Quick start:
+#   make jellyfin-up       # starts servers + auto-configures them
+#   make jellyfin-down     # stops servers
 #
-# The config directories are committed, so both servers start pre-configured
-# with libraries and a seeded admin account:
-#   Username: root     Password: password
+# This runs the startup wizard automatically, creates an admin account
+# (root / password), adds a Movies library, and waits for the scan.
+# Re-running is safe — setup is skipped if already completed.
 #
-# To register a backend with the proxy:
+# Once both servers are set up, register them as backends in the proxy:
+#
 #   POST /proxy/backends  { "name": "Server 1",
 #                           "url": "http://host.docker.internal:8196",
 #                           "prefix": "s1" }
 #
 # Then map a user to the backend:
 #   POST /proxy/backends/:id/login  { "proxy_user_id": "<uuid>",
-#                                     "username": "root",
-#                                     "password": "password" }
+#                                     "username": "<your-jellyfin-user>",
+#                                     "password": "<your-jellyfin-password>" }
 #
 # If the proxy itself runs inside Docker, register backends using
 # host.docker.internal instead of localhost, e.g.:
