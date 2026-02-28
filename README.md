@@ -1,6 +1,7 @@
 # jellyfin-proxy
 
 [![CI](https://github.com/ddevcap/jellyfin-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/ddevcap/jellyfin-proxy/actions/workflows/ci.yml)
+[![E2E](https://github.com/ddevcap/jellyfin-proxy/actions/workflows/e2e.yml/badge.svg)](https://github.com/ddevcap/jellyfin-proxy/actions/workflows/e2e.yml)
 [![codecov](https://codecov.io/gh/ddevcap/jellyfin-proxy/branch/main/graph/badge.svg?token=WJ76T7CQHV)](https://codecov.io/gh/ddevcap/jellyfin-proxy)
 A lightweight reverse proxy that sits in front of one or more Jellyfin servers
 and presents them to clients as a single unified server.
@@ -346,12 +347,42 @@ cd jellyfin-proxy
 # Install the pre-commit hook (lint + test runs automatically on every commit).
 lefthook install
 
-# Run the test suite.
-go test ./...
+# Run the unit / integration test suite.
+make test        # or: go test -race ./...
 
 # Run the linter.
 golangci-lint run ./...
 ```
+
+### Testing
+
+The project has two levels of tests:
+
+| Command | What it runs | Docker needed? |
+|---|---|---|
+| `make test` | Unit & integration tests (294 specs) with race detection | No |
+| `make e2e` | End-to-end tests (54 specs) against a live Docker stack | Yes |
+
+**Unit tests** use an in-memory SQLite database and `httptest.Server` mocks.
+Every route registered in the router has at least one test.
+
+**E2E tests** spin up a full Docker Compose stack (proxy + Postgres + 2 real
+Jellyfin backends with test media) and exercise the complete flow: login →
+browse merged libraries → play media → mark favorites → error handling.
+
+```bash
+# Run e2e tests (starts stack, runs tests, tears down).
+make e2e
+
+# Or manage the stack manually:
+make e2e-up                          # start the stack
+go test -tags e2e -v ./e2e/...       # run tests
+make e2e-down                        # tear down
+```
+
+The e2e tests use the `//go:build e2e` build tag, so `go test ./...` skips
+them automatically. The e2e stack runs on port **18096** to avoid conflicting
+with a local dev stack on 8096.
 
 ### Pre-commit hook
 
