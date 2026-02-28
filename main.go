@@ -24,7 +24,11 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("failed to load configuration", "error", err)
+		os.Exit(1)
+	}
 
 	client, err := ent.Open(dialect.Postgres, cfg.DatabaseURL)
 	if err != nil {

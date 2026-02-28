@@ -91,4 +91,3 @@ var _ = Describe("HealthReady", func() {
 		Expect(resp["status"]).To(Equal("ready"))
 	})
 })
-

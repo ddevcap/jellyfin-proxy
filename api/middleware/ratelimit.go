@@ -7,6 +7,7 @@ import (
 
 	"github.com/ddevcap/jellyfin-proxy/config"
 	"github.com/gin-gonic/gin"
+	"github.com/jellydator/ttlcache/v3"
 )
 
 // ipEntry tracks failed login attempts for a single IP.
@@ -17,44 +18,32 @@ type ipEntry struct {
 }
 
 // loginLimiter is an in-memory rate limiter for the login endpoint.
+// It uses ttlcache for automatic expiry of stale entries.
 type loginLimiter struct {
-	mu      sync.Mutex
-	entries map[string]*ipEntry
-	cfg     config.Config
-	stop    chan struct{}
+	mu    sync.Mutex
+	cache *ttlcache.Cache[string, *ipEntry]
+	cfg   config.Config
+	ttl   time.Duration // per-entry TTL = max(window, ban)
 }
 
 func newLoginLimiter(cfg config.Config) *loginLimiter {
-	l := &loginLimiter{
-		entries: make(map[string]*ipEntry),
-		cfg:     cfg,
-		stop:    make(chan struct{}),
+	entryTTL := cfg.LoginWindow
+	if cfg.LoginBanDuration > entryTTL {
+		entryTTL = cfg.LoginBanDuration
 	}
-	// Periodically clean up stale entries to prevent unbounded memory growth.
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				l.cleanup()
-			case <-l.stop:
-				return
-			}
-		}
-	}()
-	return l
-}
+	if entryTTL <= 0 {
+		entryTTL = 15 * time.Minute // sensible fallback
+	}
 
-// cleanup removes entries whose ban and window have both expired.
-func (l *loginLimiter) cleanup() {
-	now := time.Now()
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	for ip, e := range l.entries {
-		if now.After(e.bannedUntil) && now.After(e.windowEnd) {
-			delete(l.entries, ip)
-		}
+	cache := ttlcache.New[string, *ipEntry](
+		ttlcache.WithTTL[string, *ipEntry](entryTTL),
+	)
+	go cache.Start() // background eviction of expired entries
+
+	return &loginLimiter{
+		cache: cache,
+		cfg:   cfg,
+		ttl:   entryTTL,
 	}
 }
 
@@ -63,11 +52,11 @@ func (l *loginLimiter) cleanup() {
 func (l *loginLimiter) allow(ip string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	e, ok := l.entries[ip]
-	if !ok {
+	item := l.cache.Get(ip)
+	if item == nil {
 		return true
 	}
-	if time.Now().Before(e.bannedUntil) {
+	if time.Now().Before(item.Value().bannedUntil) {
 		return false
 	}
 	return true
@@ -79,26 +68,33 @@ func (l *loginLimiter) recordFailure(ip string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := time.Now()
-	e, ok := l.entries[ip]
-	if !ok || now.After(e.windowEnd) {
+
+	var e *ipEntry
+	if item := l.cache.Get(ip); item != nil {
+		e = item.Value()
+	}
+
+	if e == nil || now.After(e.windowEnd) {
 		// Start a fresh window.
-		l.entries[ip] = &ipEntry{
+		e = &ipEntry{
 			attempts:  1,
 			windowEnd: now.Add(l.cfg.LoginWindow),
 		}
+		l.cache.Set(ip, e, l.ttl)
 		return
 	}
 	e.attempts++
 	if e.attempts >= l.cfg.LoginMaxAttempts {
 		e.bannedUntil = now.Add(l.cfg.LoginBanDuration)
 	}
+	l.cache.Set(ip, e, l.ttl)
 }
 
 // recordSuccess resets the failure count for an IP after a successful login.
 func (l *loginLimiter) recordSuccess(ip string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	delete(l.entries, ip)
+	l.cache.Delete(ip)
 }
 
 // LoginRateLimiter returns a middleware + a recordFailure/recordSuccess pair
@@ -123,7 +119,7 @@ func LoginRateLimiter(cfg config.Config) (gin.HandlerFunc, func(string), func(st
 		c.Next()
 	}
 
-	stop := func() { close(limiter.stop) }
+	stop := func() { limiter.cache.Stop() }
 
 	return mw, limiter.recordFailure, limiter.recordSuccess, stop
 }

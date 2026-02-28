@@ -39,7 +39,8 @@ var _ = Describe("Load", func() {
 	})
 
 	It("returns defaults when no env vars are set", func() {
-		cfg := config.Load()
+		cfg, err := config.Load()
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(cfg.DatabaseURL).To(Equal("postgres://jellyfin:jellyfin@localhost:5432/jellyfin_proxy?sslmode=disable"))
 		Expect(cfg.ListenAddr).To(Equal(":8096"))
@@ -64,7 +65,8 @@ var _ = Describe("Load", func() {
 		Expect(os.Setenv("INITIAL_ADMIN_USER", "superadmin")).To(Succeed())
 		Expect(os.Setenv("INITIAL_ADMIN_PASSWORD", "secret123")).To(Succeed())
 
-		cfg := config.Load()
+		cfg, err := config.Load()
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(cfg.DatabaseURL).To(Equal("postgres://custom:pass@db:5432/mydb?sslmode=disable"))
 		Expect(cfg.ListenAddr).To(Equal(":9090"))
@@ -80,50 +82,50 @@ var _ = Describe("Load", func() {
 		Expect(os.Setenv("LOGIN_WINDOW", "5m")).To(Succeed())
 		Expect(os.Setenv("LOGIN_BAN_DURATION", "30m")).To(Succeed())
 
-		cfg := config.Load()
+		cfg, err := config.Load()
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(cfg.SessionTTL).To(Equal(time.Hour))
 		Expect(cfg.LoginWindow).To(Equal(5 * time.Minute))
 		Expect(cfg.LoginBanDuration).To(Equal(30 * time.Minute))
 	})
 
-	It("falls back to the default for an invalid duration", func() {
+	It("returns an error for an invalid duration", func() {
 		Expect(os.Setenv("SESSION_TTL", "not-a-duration")).To(Succeed())
 
-		cfg := config.Load()
-
-		Expect(cfg.SessionTTL).To(Equal(30 * 24 * time.Hour))
+		_, err := config.Load()
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("reads int values from env vars", func() {
 		Expect(os.Setenv("LOGIN_MAX_ATTEMPTS", "5")).To(Succeed())
 
-		cfg := config.Load()
+		cfg, err := config.Load()
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(cfg.LoginMaxAttempts).To(Equal(5))
 	})
 
-	It("falls back to the default for an invalid int", func() {
+	It("returns an error for an invalid int", func() {
 		Expect(os.Setenv("LOGIN_MAX_ATTEMPTS", "not-a-number")).To(Succeed())
 
-		cfg := config.Load()
-
-		Expect(cfg.LoginMaxAttempts).To(Equal(10))
+		_, err := config.Load()
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("reads bool values from env vars", func() {
 		Expect(os.Setenv("DIRECT_STREAM", "true")).To(Succeed())
 
-		cfg := config.Load()
+		cfg, err := config.Load()
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(cfg.DirectStream).To(BeTrue())
 	})
 
-	It("falls back to the default for an invalid bool", func() {
+	It("returns an error for an invalid bool", func() {
 		Expect(os.Setenv("DIRECT_STREAM", "not-a-bool")).To(Succeed())
 
-		cfg := config.Load()
-
-		Expect(cfg.DirectStream).To(BeFalse())
+		_, err := config.Load()
+		Expect(err).To(HaveOccurred())
 	})
 })

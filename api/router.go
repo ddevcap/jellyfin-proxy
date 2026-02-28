@@ -4,51 +4,43 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/ddevcap/jellyfin-proxy/api/handler"
 	"github.com/ddevcap/jellyfin-proxy/api/middleware"
 	"github.com/ddevcap/jellyfin-proxy/backend"
 	"github.com/ddevcap/jellyfin-proxy/config"
 	"github.com/ddevcap/jellyfin-proxy/ent"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-// corsMiddleware adds CORS headers to allow cross-origin requests.
-// Only the proxy's own ExternalURL origin (and its http/https variant) are
-// accepted with credentials. Requests from unknown origins receive a
-// wildcard Allow-Origin without credentials.
+// corsMiddleware returns a gin-contrib/cors middleware configured with the
+// proxy's allowed origins. Credentialed origins from ExternalURL + CORSOrigins
+// are accepted with credentials. Unknown origins receive a wildcard
+// Allow-Origin without credentials so public resources still work.
 func corsMiddleware(cfg config.Config) gin.HandlerFunc {
-	// Pre-compute the set of allowed origins from ExternalURL + CORSOrigins.
 	allowed := buildAllowedOrigins(cfg.ExternalURL)
 	for _, o := range cfg.CORSOrigins {
 		allowed[strings.ToLower(o)] = true
 	}
 
-	return func(c *gin.Context) {
-		origin := c.Request.Header.Get("Origin")
-
-		if origin != "" && allowed[strings.ToLower(origin)] {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		} else {
-			// Unknown origin — allow without credentials so public
-			// resources (images, streams) still work from web players.
-			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		}
-
-		c.Writer.Header().Set("Vary", "Origin")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept, Accept-Encoding, Authorization, X-Emby-Token, X-Emby-Authorization, X-MediaBrowser-Token, User-Agent, X-Requested-With, Cache-Control, Pragma")
-		c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Length, Content-Type, X-Emby-Token, X-Emby-Authorization")
-		c.Writer.Header().Set("Access-Control-Max-Age", "86400")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-
-		c.Next()
-	}
+	return cors.New(cors.Config{
+		AllowOriginWithContextFunc: func(c *gin.Context, origin string) bool {
+			if !allowed[strings.ToLower(origin)] {
+				// Unknown origin — allow without credentials so public
+				// resources (images, streams) still work from web players.
+				c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+				c.Writer.Header().Del("Access-Control-Allow-Credentials")
+			}
+			return true
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "Authorization", "X-Emby-Token", "X-Emby-Authorization", "X-MediaBrowser-Token", "User-Agent", "X-Requested-With", "Cache-Control", "Pragma"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Type", "X-Emby-Token", "X-Emby-Authorization"},
+		AllowCredentials: true,
+		MaxAge:           24 * time.Hour,
+	})
 }
 
 // NewRouter builds and returns an http.Handler.
@@ -57,7 +49,7 @@ func corsMiddleware(cfg config.Config) gin.HandlerFunc {
 func NewRouter(db *ent.Client, cfg config.Config, pool *backend.Pool, wsHub *handler.WSHub) (http.Handler, func()) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	r.Use(gin.Recovery(), middleware.RequestID(), corsMiddleware(cfg))
+	r.Use(gin.Recovery(), middleware.RequestID(), middleware.RequestLogger(), corsMiddleware(cfg))
 
 	// Build login rate limiter — shared across all /emby, /jellyfin, and bare prefixes.
 	loginMW, onFail, onSuccess, stopLimiter := middleware.LoginRateLimiter(cfg)

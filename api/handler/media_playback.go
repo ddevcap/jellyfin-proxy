@@ -363,30 +363,14 @@ func injectTokenIntoHLSPlaylist(body []byte, token string) []byte {
 // stripApiKeyFromURL removes ApiKey=... from a URL string, handling both
 // &ApiKey=value and ?ApiKey=value positions.
 func stripApiKeyFromURL(u string) string {
-	// Remove &ApiKey=value
-	for {
-		idx := strings.Index(u, "&ApiKey=")
-		if idx == -1 {
-			break
-		}
-		end := strings.IndexAny(u[idx+7:], "&")
-		if end == -1 {
-			u = u[:idx]
-		} else {
-			u = u[:idx] + u[idx+7+end:]
-		}
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return u
 	}
-	// Remove ?ApiKey=value (when it's the first param)
-	idx := strings.Index(u, "?ApiKey=")
-	if idx != -1 {
-		end := strings.IndexByte(u[idx+7:], '&')
-		if end == -1 {
-			u = u[:idx] // no other params
-		} else {
-			u = u[:idx] + "?" + u[idx+7+end+1:] // keep remaining params
-		}
-	}
-	return u
+	q := parsed.Query()
+	q.Del("ApiKey")
+	parsed.RawQuery = q.Encode()
+	return parsed.String()
 }
 
 // injectTokenIntoTagURI handles #EXT-X-MAP:URI="init.mp4?query" style tags.

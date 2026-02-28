@@ -3,6 +3,7 @@
 [![CI](https://github.com/ddevcap/jellyfin-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/ddevcap/jellyfin-proxy/actions/workflows/ci.yml)
 [![E2E](https://github.com/ddevcap/jellyfin-proxy/actions/workflows/e2e.yml/badge.svg)](https://github.com/ddevcap/jellyfin-proxy/actions/workflows/e2e.yml)
 [![codecov](https://codecov.io/gh/ddevcap/jellyfin-proxy/branch/main/graph/badge.svg?token=WJ76T7CQHV)](https://codecov.io/gh/ddevcap/jellyfin-proxy)
+
 A lightweight reverse proxy that sits in front of one or more Jellyfin servers
 and presents them to clients as a single unified server.
 

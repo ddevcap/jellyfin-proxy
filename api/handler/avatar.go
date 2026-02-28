@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ddevcap/jellyfin-proxy/ent"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -130,7 +131,7 @@ func decodeImageBody(body []byte, headerCT string) ([]byte, string, bool) {
 		}
 		meta := s[5:comma] // everything between "data:" and ","
 		payload := s[comma+1:]
-		ct := strings.TrimSuffix(strings.Split(meta, ";")[0], " ")
+		ct := strings.TrimSuffix(strings.SplitN(meta, ";", 2)[0], " ")
 		if !strings.HasPrefix(ct, "image/") {
 			return nil, "", false
 		}
@@ -173,14 +174,16 @@ binary:
 
 // sniffImageType returns the content-type of image bytes, preferring the
 // provided header value when it is already an image/* type, and falling back
-// to http.DetectContentType. Returns "" when neither is an image.
+// to mimetype.Detect which recognises more formats than the stdlib (WebP,
+// AVIF, HEIC, etc.). Returns "" when neither is an image.
 func sniffImageType(data []byte, headerCT string) string {
-	if strings.HasPrefix(strings.SplitN(headerCT, ";", 2)[0], "image/") {
-		return strings.SplitN(headerCT, ";", 2)[0]
+	mimeType := strings.SplitN(headerCT, ";", 2)[0]
+	if strings.HasPrefix(mimeType, "image/") {
+		return mimeType
 	}
-	ct := http.DetectContentType(data)
-	if strings.HasPrefix(ct, "image/") {
-		return ct
+	detected := mimetype.Detect(data)
+	if strings.HasPrefix(detected.String(), "image/") {
+		return detected.String()
 	}
 	return ""
 }

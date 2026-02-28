@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	entsession "github.com/ddevcap/jellyfin-proxy/ent/session"
 	"github.com/ddevcap/jellyfin-proxy/idtrans"
 	"github.com/gin-gonic/gin"
+	"github.com/jellydator/ttlcache/v3"
 )
 
 // fanOutTimeout is the per-backend deadline for fan-out requests during
@@ -41,7 +43,7 @@ type MediaHandler struct {
 	pool      *backend.Pool
 	cfg       config.Config
 	db        *ent.Client
-	viewCache *viewCache
+	viewCache *ttlcache.Cache[string, []json.RawMessage]
 }
 
 func NewMediaHandler(pool *backend.Pool, cfg config.Config, db *ent.Client) *MediaHandler {
@@ -289,14 +291,8 @@ func toUUIDForm(id string) string {
 	if len(id) != 32 {
 		return id
 	}
-	for _, c := range id {
-		switch {
-		case c >= '0' && c <= '9':
-		case c >= 'a' && c <= 'f':
-		case c >= 'A' && c <= 'F':
-		default:
-			return id
-		}
+	if _, err := hex.DecodeString(id); err != nil {
+		return id
 	}
 	return id[0:8] + "-" + id[8:12] + "-" + id[12:16] + "-" + id[16:20] + "-" + id[20:32]
 }
@@ -344,6 +340,18 @@ func rewritePlaybackInfoURLs(body []byte, backendID, proxyID, backendBase, proxy
 	return body
 }
 
+// findValueEnd returns the index in body where a query-parameter value ends,
+// scanning forward from valueStart. End delimiters are &, \u0026, and ".
+func findValueEnd(body []byte, valueStart int) int {
+	end := len(body)
+	for _, sep := range [][]byte{[]byte("&"), []byte(`\u0026`), []byte(`"`)} {
+		if i := bytes.Index(body[valueStart:], sep); i != -1 && valueStart+i < end {
+			end = valueStart + i
+		}
+	}
+	return end
+}
+
 // stripQueryParam removes all occurrences of a URL query parameter from
 // JSON-encoded URL strings (handles both & and \u0026 separators, and the
 // case where the parameter is the first one after "?").
@@ -357,16 +365,7 @@ func stripQueryParam(body []byte, param string) []byte {
 			if idx == -1 {
 				break
 			}
-			// Find where the value ends
-			valueStart := idx + len(needle)
-			// End delimiters: & \u0026 "
-			end := len(body)
-			for _, endSep := range [][]byte{[]byte("&"), []byte(`\u0026`), []byte(`"`)} {
-				if i := bytes.Index(body[valueStart:], endSep); i != -1 && valueStart+i < end {
-					end = valueStart + i
-				}
-			}
-			// Remove from idx to end
+			end := findValueEnd(body, idx+len(needle))
 			body = append(body[:idx], body[end:]...)
 		}
 	}
@@ -380,13 +379,7 @@ func stripQueryParam(body []byte, param string) []byte {
 		if idx == -1 {
 			break
 		}
-		valueStart := idx + len(needle)
-		end := len(body)
-		for _, endSep := range [][]byte{[]byte("&"), []byte(`\u0026`), []byte(`"`)} {
-			if i := bytes.Index(body[valueStart:], endSep); i != -1 && valueStart+i < end {
-				end = valueStart + i
-			}
-		}
+		end := findValueEnd(body, idx+len(needle))
 		// Keep the "?" and skip to next separator; if the separator is & or
 		// \u0026, skip it too so we get ?nextParam=... instead of ?&nextParam=...
 		tail := body[end:]

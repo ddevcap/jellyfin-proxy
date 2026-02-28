@@ -15,6 +15,7 @@ import (
 	entuser "github.com/ddevcap/jellyfin-proxy/ent/user"
 	"github.com/ddevcap/jellyfin-proxy/idtrans"
 	"github.com/gin-gonic/gin"
+	"github.com/jellydator/ttlcache/v3"
 )
 
 // GetUser handles GET /Users/:userId.
@@ -42,8 +43,8 @@ func (h *MediaHandler) GetViews(c *gin.Context) {
 	}
 
 	// Check cache first.
-	if cached := h.viewCache.get(user.ID.String()); cached != nil {
-		writePagedViews(c, cached)
+	if item := h.viewCache.Get(user.ID.String()); item != nil {
+		writePagedViews(c, item.Value())
 		return
 	}
 
@@ -52,7 +53,7 @@ func (h *MediaHandler) GetViews(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	h.viewCache.set(user.ID.String(), allItems)
+	h.viewCache.Set(user.ID.String(), allItems, ttlcache.DefaultTTL)
 	writePagedViews(c, allItems)
 }
 
@@ -81,8 +82,8 @@ func (h *MediaHandler) GetUserViews(c *gin.Context) {
 		return
 	}
 
-	if cached := h.viewCache.get(user.ID.String()); cached != nil {
-		writePagedViews(c, cached)
+	if item := h.viewCache.Get(user.ID.String()); item != nil {
+		writePagedViews(c, item.Value())
 		return
 	}
 
@@ -91,7 +92,7 @@ func (h *MediaHandler) GetUserViews(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	h.viewCache.set(user.ID.String(), allItems)
+	h.viewCache.Set(user.ID.String(), allItems, ttlcache.DefaultTTL)
 	writePagedViews(c, allItems)
 }
 
