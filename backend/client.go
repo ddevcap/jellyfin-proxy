@@ -88,7 +88,12 @@ func (sc *ServerClient) ProxyJSON(ctx context.Context, method, path string, quer
 		return raw, resp.StatusCode, nil
 	}
 
-	translated, err := idtrans.RewriteResponse(raw, sc.backend.Prefix, sc.pool.cfg.ServerID)
+	bi := &idtrans.BackendInfo{
+		ID:   sc.backend.ID.String(),
+		Name: sc.backend.Name,
+		URL:  sc.backend.URL,
+	}
+	translated, err := idtrans.RewriteResponse(raw, sc.backend.Prefix, sc.pool.cfg.ServerID, bi)
 	if err != nil {
 		// Non-JSON body (e.g. an image accidentally routed here): pass through.
 		return raw, resp.StatusCode, nil

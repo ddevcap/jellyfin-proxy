@@ -15,9 +15,13 @@ type obj = map[string]interface{}
 // and returns the unmarshalled result. Expectations are inline so Ginkgo
 // reports the correct spec location on failure.
 func rewriteResponse(input obj, prefix, proxyServerID string) obj { //nolint:unparam
+	return rewriteResponseWithBackend(input, prefix, proxyServerID, nil)
+}
+
+func rewriteResponseWithBackend(input obj, prefix, proxyServerID string, backend *idtrans.BackendInfo) obj {
 	b, err := json.Marshal(input)
 	Expect(err).NotTo(HaveOccurred())
-	result, err := idtrans.RewriteResponse(b, prefix, proxyServerID)
+	result, err := idtrans.RewriteResponse(b, prefix, proxyServerID, backend)
 	Expect(err).NotTo(HaveOccurred())
 	var out obj
 	Expect(json.Unmarshal(result, &out)).To(Succeed())
@@ -169,12 +173,68 @@ var _ = Describe("RewriteResponse", func() {
 	Context("null IDs", func() {
 		It("passes null fields through unchanged", func() {
 			raw := []byte(`{"Id":"abc","SeriesId":null}`)
-			result, err := idtrans.RewriteResponse(raw, "s1", "proxy-id")
+			result, err := idtrans.RewriteResponse(raw, "s1", "proxy-id", nil)
 			Expect(err).NotTo(HaveOccurred())
 			var out obj
 			Expect(json.Unmarshal(result, &out)).To(Succeed())
 			Expect(out["Id"]).To(Equal("s1_abc"))
 			Expect(out["SeriesId"]).To(BeNil())
+		})
+	})
+
+	Context("backend info injection", func() {
+		bi := &idtrans.BackendInfo{ID: "be-uuid", Name: "My NAS", URL: "http://nas:8096"}
+
+		It("injects BackendId, BackendName, BackendUrl on objects with an Id field", func() {
+			out := rewriteResponseWithBackend(obj{
+				"Id":   "abc123",
+				"Name": "My Movie",
+			}, "s1", "proxy-id", bi)
+
+			Expect(out["BackendId"]).To(Equal("be-uuid"))
+			Expect(out["BackendName"]).To(Equal("My NAS"))
+			Expect(out["BackendUrl"]).To(Equal("http://nas:8096"))
+		})
+
+		It("injects backend info into nested Items array objects", func() {
+			out := rewriteResponseWithBackend(obj{
+				"Id": "parent",
+				"Items": []interface{}{
+					obj{"Id": "child1", "Name": "Episode 1"},
+					obj{"Id": "child2", "Name": "Episode 2"},
+				},
+			}, "s1", "proxy-id", bi)
+
+			items := out["Items"].([]interface{})
+			for _, item := range items {
+				m := item.(obj)
+				Expect(m["BackendId"]).To(Equal("be-uuid"))
+				Expect(m["BackendName"]).To(Equal("My NAS"))
+				Expect(m["BackendUrl"]).To(Equal("http://nas:8096"))
+			}
+			// Parent also has Id, so it should get backend info too.
+			Expect(out["BackendId"]).To(Equal("be-uuid"))
+		})
+
+		It("does not inject backend info on objects without an Id field", func() {
+			out := rewriteResponseWithBackend(obj{
+				"Name": "No Id here",
+			}, "s1", "proxy-id", bi)
+
+			Expect(out).NotTo(HaveKey("BackendId"))
+			Expect(out).NotTo(HaveKey("BackendName"))
+			Expect(out).NotTo(HaveKey("BackendUrl"))
+		})
+
+		It("does not inject backend info when BackendInfo is nil", func() {
+			out := rewriteResponseWithBackend(obj{
+				"Id":   "abc123",
+				"Name": "My Movie",
+			}, "s1", "proxy-id", nil)
+
+			Expect(out).NotTo(HaveKey("BackendId"))
+			Expect(out).NotTo(HaveKey("BackendName"))
+			Expect(out).NotTo(HaveKey("BackendUrl"))
 		})
 	})
 })
